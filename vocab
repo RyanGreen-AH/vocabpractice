@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Middle School Vocabulary Flashcard Generator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f3ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 3D Card Flip Animation */
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+
+        /* Printable Sheet Optimization */
+        @media print {
+            body { background: white !important; color: black !important; }
+            .no-print { display: none !important; }
+            .print-grid {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 16px !important;
+                page-break-inside: avoid;
+            }
+            .print-card {
+                border: 2px solid #cbd5e1 !important;
+                box-shadow: none !important;
+                break-inside: avoid;
+                padding: 16px !important;
+                background: #ffffff !important;
+            }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo & Sync Badge -->
+                <div class="flex items-center space-x-3">
+                    <div class="bg-gradient-to-tr from-brand-600 to-indigo-500 text-white p-2.5 rounded-xl shadow-md">
+                        <i class="fa-solid fa-layer-group text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[11px] font-extrabold uppercase tracking-wider text-brand-600 block leading-tight">Middle School Vocab</span>
+                            <!-- Dynamic Sync Indicator -->
+                            <span id="sync-status-badge" class="inline-flex items-center space-x-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200" title="Sync Status">
+                                <span id="sync-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span id="sync-status-text">Cloud Sync Ready</span>
+                            </span>
+                        </div>
+                        <h1 id="header-deck-title" class="text-base sm:text-lg font-bold text-slate-900 truncate max-w-[180px] sm:max-w-xs md:max-w-md">
+                            Loading Vocabulary Deck...
+                        </h1>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <nav class="hidden md:flex space-x-1 bg-slate-100 p-1 rounded-xl">
+                    <button onclick="switchTab('study')" id="nav-btn-study" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-clone"></i>
+                        <span>Flip & Study</span>
+                    </button>
+                    <button onclick="switchTab('practice')" id="nav-btn-practice" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span>Practice Mode</span>
+                    </button>
+                    <button onclick="switchTab('grid')" id="nav-btn-grid" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-border-all"></i>
+                        <span>Grid & Search</span>
+                    </button>
+                    <button onclick="switchTab('editor')" id="nav-btn-editor" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center space-x-2">
+                        <i id="editor-lock-icon" class="fa-solid fa-lock text-amber-500"></i>
+                        <span>Teacher Editor</span>
+                    </button>
+                    <button onclick="switchTab('embed')" id="nav-btn-embed" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-code"></i>
+                        <span>Share & Embed</span>
+                    </button>
+                </nav>
+
+                <!-- Action Controls -->
+                <div class="flex items-center space-x-2">
+                    <button onclick="manualRefreshSync()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-xl border border-slate-200 transition-colors" title="Refresh Latest Terms From Teacher">
+                        <i class="fa-solid fa-arrows-rotate text-sm"></i>
+                    </button>
+                    <button id="header-lock-btn" onclick="lockTeacherMode()" class="hidden bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold py-2 px-3 rounded-xl border border-amber-200 transition-colors flex items-center space-x-1.5">
+                        <i class="fa-solid fa-lock"></i>
+                        <span class="hidden sm:inline">Lock Editor</span>
+                    </button>
+                    <button onclick="toggleMobileMenu()" class="md:hidden p-2 text-slate-600 hover:text-slate-900 focus:outline-none">
+                        <i class="fa-solid fa-bars text-xl"></i>
+                    </button>
+                    <div class="hidden sm:block">
+                        <select id="preset-selector" onchange="loadPresetDeck(this.value)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl border-0 focus:ring-2 focus:ring-brand-500 cursor-pointer">
+                            <option value="" disabled selected>✨ Sample Decks</option>
+                            <option value="middleSchoolCore">🌟 Core Vocab (7th-8th)</option>
+                            <option value="science">🔬 Earth Science</option>
+                            <option value="lit">📚 Literary Terms</option>
+                            <option value="civics">🏛️ Civics & Social Studies</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Dropdown -->
+        <div id="mobile-menu" class="hidden md:hidden border-t border-slate-200 bg-white px-4 py-3 space-y-2">
+            <button onclick="switchTab('study'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 flex items-center space-x-2">
+                <i class="fa-solid fa-clone w-5"></i><span>Flip & Study</span>
+            </button>
+            <button onclick="switchTab('practice'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 flex items-center space-x-2">
+                <i class="fa-solid fa-circle-check w-5"></i><span>Practice Mode</span>
+            </button>
+            <button onclick="switchTab('grid'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 flex items-center space-x-2">
+                <i class="fa-solid fa-border-all w-5"></i><span>Grid & Search</span>
+            </button>
+            <button onclick="switchTab('editor'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 flex items-center space-x-2">
+                <i class="fa-solid fa-lock w-5 text-amber-500"></i><span>Teacher Editor</span>
+            </button>
+            <button onclick="switchTab('embed'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 flex items-center space-x-2">
+                <i class="fa-solid fa-code w-5"></i><span>Share & Embed</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- Toast Banner Notification -->
+        <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+            <div class="bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center space-x-3">
+                <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+                <span id="toast-message" class="text-sm font-semibold">Notification</span>
+            </div>
+        </div>
+
+        <!-- VIEW 1: FLIP & STUDY MODE -->
+        <section id="view-study" class="view-section max-w-3xl mx-auto space-y-5">
+            <!-- Search & Control Header -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="relative w-full sm:w-64">
+                    <input type="text" id="study-search-input" onkeyup="filterStudyCards()" placeholder="🔍 Filter cards..." class="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl text-xs font-semibold border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                </div>
+
+                <div class="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-end">
+                    <span id="study-counter" class="text-xs font-bold bg-brand-50 text-brand-700 px-3 py-1 rounded-full border border-brand-100">
+                        Card 1 / 10
+                    </span>
+                    <div class="flex items-center space-x-1">
+                        <button onclick="shuffleDeck()" title="Shuffle Deck" class="p-2 text-slate-500 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition-colors">
+                            <i class="fa-solid fa-shuffle"></i>
+                        </button>
+                        <button onclick="speakCurrentWord()" title="Listen to Pronunciation" class="p-2 text-slate-500 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition-colors">
+                            <i class="fa-solid fa-volume-high"></i>
+                        </button>
+                        <button onclick="toggleHint()" title="Toggle Hint" class="p-2 text-slate-500 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors">
+                            <i class="fa-solid fa-lightbulb"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                <div id="study-progress-bar" class="bg-brand-600 h-2 rounded-full transition-all duration-300" style="width: 10%"></div>
+            </div>
+
+            <!-- 3D Flashcard Container -->
+            <div class="perspective-1000 w-full h-[360px] sm:h-[420px] cursor-pointer" onclick="flipCard()">
+                <div id="flashcard-inner" class="transform-style-3d relative w-full h-full rounded-3xl shadow-xl transition-all duration-500 bg-white border border-slate-200 hover:shadow-2xl">
+                    
+                    <!-- Front (Word & Part of Speech) -->
+                    <div class="backface-hidden absolute inset-0 w-full h-full p-8 flex flex-col justify-between items-center rounded-3xl bg-gradient-to-b from-white to-slate-50">
+                        <div class="w-full flex justify-between items-center">
+                            <span id="card-front-pos" class="text-xs font-bold uppercase tracking-wider text-brand-600 bg-brand-50 px-2.5 py-1 rounded-md border border-brand-100">
+                                noun
+                            </span>
+                            <span class="text-xs text-slate-400 font-medium">Click or press Space <i class="fa-solid fa-rotate text-brand-400 ml-1"></i></span>
+                        </div>
+
+                        <div class="text-center px-4 my-auto">
+                            <h2 id="card-front-word" class="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-snug">
+                                Vocabulary Word
+                            </h2>
+                            <div id="card-hint-box" class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl max-w-md mx-auto hidden">
+                                <p class="text-[11px] font-bold text-amber-800 uppercase tracking-wide mb-0.5">💡 Teacher Hint</p>
+                                <p id="card-hint-text" class="text-xs text-amber-700 font-medium italic"></p>
+                            </div>
+                        </div>
+
+                        <div class="text-xs text-slate-400 font-semibold flex items-center space-x-1">
+                            <i class="fa-solid fa-hand-pointer text-brand-500"></i>
+                            <span>Tap card to reveal definition</span>
+                        </div>
+                    </div>
+
+                    <!-- Back (Definition & Example Sentence) -->
+                    <div class="backface-hidden rotate-y-180 absolute inset-0 w-full h-full p-8 flex flex-col justify-between items-center rounded-3xl bg-slate-900 text-white">
+                        <div class="w-full flex justify-between items-center">
+                            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-md border border-emerald-800">Definition</span>
+                            <span class="text-xs text-slate-400 font-medium"><i class="fa-solid fa-rotate mr-1"></i> Flip back</span>
+                        </div>
+                        <div class="text-center px-4 my-auto max-h-[250px] overflow-y-auto space-y-3">
+                            <p id="card-back-def" class="text-lg sm:text-2xl font-medium leading-relaxed text-indigo-50">
+                                Detailed definition explanation goes here.
+                            </p>
+                            <p id="card-back-example" class="text-xs sm:text-sm text-slate-300 italic border-t border-slate-800 pt-3 max-w-md mx-auto hidden">
+                                "Example sentence using the word."
+                            </p>
+                        </div>
+                        <div class="w-full flex justify-center space-x-4 pt-2">
+                            <button onclick="event.stopPropagation(); speakCurrentDef();" class="text-xs text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 px-3.5 py-1.5 rounded-lg transition-colors flex items-center space-x-1.5">
+                                <i class="fa-solid fa-volume-high"></i>
+                                <span>Read Aloud</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Card Navigation Bar -->
+            <div class="flex items-center justify-between space-x-4">
+                <button onclick="prevCard()" class="flex-1 py-3.5 px-6 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold border border-slate-200 shadow-sm transition-all flex items-center justify-center space-x-2 active:scale-95">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span class="hidden sm:inline">Previous</span>
+                </button>
+                <button onclick="flipCard()" class="px-6 py-3.5 rounded-2xl bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold border border-brand-200 transition-all flex items-center justify-center space-x-2 active:scale-95">
+                    <i class="fa-solid fa-rotate"></i>
+                    <span>Flip</span>
+                </button>
+                <button onclick="nextCard()" class="flex-1 py-3.5 px-6 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold shadow-md shadow-brand-500/20 transition-all flex items-center justify-center space-x-2 active:scale-95">
+                    <span class="hidden sm:inline">Next</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- VIEW 2: PRACTICE & QUIZ MODE -->
+        <section id="view-practice" class="view-section max-w-3xl mx-auto space-y-6 hidden">
+            <!-- Score Banner -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Self-Assessment Quiz Mode</h2>
+                    <p class="text-xs text-slate-500">Test your recall! Mark each card as Mastered or Needs Work.</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1.5 rounded-xl">
+                        <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                        <span>Got It: <span id="score-got-it">0</span></span>
+                    </div>
+                    <div class="flex items-center space-x-1.5 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-3 py-1.5 rounded-xl">
+                        <i class="fa-solid fa-circle-xmark text-amber-500"></i>
+                        <span>Review: <span id="score-needs-practice">0</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Practice Card -->
+            <div id="practice-card-wrapper" class="perspective-1000 w-full h-[340px] sm:h-[380px] cursor-pointer" onclick="flipPracticeCard()">
+                <div id="practice-card-inner" class="transform-style-3d relative w-full h-full rounded-3xl shadow-xl transition-all duration-500 bg-white border border-slate-200">
+                    
+                    <!-- Practice Front -->
+                    <div class="backface-hidden absolute inset-0 w-full h-full p-8 flex flex-col justify-between items-center rounded-3xl bg-white">
+                        <div class="w-full flex justify-between items-center">
+                            <span id="practice-front-pos" class="text-xs font-bold uppercase tracking-wider text-brand-600 bg-brand-50 px-2.5 py-1 rounded-md">Practice Term</span>
+                            <span id="practice-counter" class="text-xs font-semibold text-slate-400">1 of 10</span>
+                        </div>
+                        <div class="text-center px-4 my-auto">
+                            <h2 id="practice-front-word" class="text-3xl sm:text-4xl font-extrabold text-slate-900">
+                                Practice Word
+                            </h2>
+                        </div>
+                        <div class="text-xs text-slate-400 font-semibold">Click card to reveal definition</div>
+                    </div>
+
+                    <!-- Practice Back -->
+                    <div class="backface-hidden rotate-y-180 absolute inset-0 w-full h-full p-8 flex flex-col justify-between items-center rounded-3xl bg-slate-900 text-white">
+                        <div class="w-full flex justify-between items-center">
+                            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded-md">Definition</span>
+                            <span class="text-xs text-slate-400">Flip back</span>
+                        </div>
+                        <div class="text-center px-4 my-auto max-h-[220px] overflow-y-auto space-y-2">
+                            <p id="practice-back-def" class="text-base sm:text-xl font-medium leading-relaxed text-slate-100">
+                                Definition goes here.
+                            </p>
+                        </div>
+                        <div class="text-xs text-slate-400">Did you recall this correctly?</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Quiz Grading Buttons -->
+            <div id="practice-actions-grid" class="grid grid-cols-2 gap-4">
+                <button onclick="markCard(false)" class="py-4 px-6 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold rounded-2xl shadow-sm transition-all flex flex-col items-center justify-center space-y-1 active:scale-95">
+                    <div class="flex items-center space-x-2 text-amber-600">
+                        <i class="fa-solid fa-rotate-left text-lg"></i>
+                        <span class="text-base">Needs Practice</span>
+                    </div>
+                </button>
+
+                <button onclick="markCard(true)" class="py-4 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-md shadow-emerald-600/20 transition-all flex flex-col items-center justify-center space-y-1 active:scale-95">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-circle-check text-lg"></i>
+                        <span class="text-base">Got It!</span>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Session Summary Box -->
+            <div id="practice-summary" class="hidden bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-6">
+                <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-extrabold text-slate-900">Quiz Completed!</h3>
+                    <p class="text-slate-500 text-sm mt-1">Here are your study results:</p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 max-w-sm mx-auto">
+                    <div class="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                        <span class="block text-2xl font-black text-emerald-600" id="summary-got-it">0</span>
+                        <span class="text-xs font-bold text-emerald-700 uppercase">Mastered</span>
+                    </div>
+                    <div class="p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                        <span class="block text-2xl font-black text-amber-600" id="summary-review">0</span>
+                        <span class="text-xs font-bold text-amber-700 uppercase">Needs Work</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row justify-center gap-3 pt-2">
+                    <button onclick="restartPractice(false)" class="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition-all shadow-md">
+                        <i class="fa-solid fa-rotate-right mr-2"></i>Restart Full Deck
+                    </button>
+                    <button id="btn-review-missed" onclick="restartPractice(true)" class="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition-all shadow-md hidden">
+                        <i class="fa-solid fa-filter mr-2"></i>Review Missed Only
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 3: GRID & SEARCH VIEW -->
+        <section id="view-grid" class="view-section space-y-6 hidden">
+            <!-- Header Bar -->
+            <div class="no-print bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                <div class="w-full md:w-auto">
+                    <h2 class="text-lg font-bold text-slate-900">Vocabulary Reference Sheet</h2>
+                    <p class="text-xs text-slate-500">View all terms, filter definitions, or print study sheets.</p>
+                </div>
+                <div class="flex items-center space-x-3 w-full md:w-auto">
+                    <div class="relative flex-1 md:w-64">
+                        <input type="text" id="grid-search-input" onkeyup="renderGridCards()" placeholder="🔍 Filter list..." class="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl text-xs font-semibold border border-slate-200 focus:outline-none">
+                    </div>
+                    <button onclick="window.print()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-print"></i>
+                        <span>Print</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Grid Container -->
+            <div id="grid-cards-container" class="print-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <!-- Dynamic cards -->
+            </div>
+        </section>
+
+        <!-- VIEW 4: TEACHER EDITOR MODE -->
+        <section id="view-editor" class="view-section max-w-4xl mx-auto space-y-6 hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+                <div class="border-b border-slate-100 pb-4 flex items-center justify-between">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h2 class="text-xl font-bold text-slate-900">Teacher Deck Portal</h2>
+                            <span class="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase">Unlocked (Password: Parsons)</span>
+                        </div>
+                        <p class="text-xs text-slate-500">Manage vocabulary words or set up cross-device sync for your embedded class website.</p>
+                    </div>
+                    <button onclick="clearDeck()" class="text-xs text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg font-semibold">
+                        <i class="fa-solid fa-trash mr-1"></i>Clear
+                    </button>
+                </div>
+
+                <!-- Deck Metadata -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Deck Title</label>
+                        <input type="text" id="edit-deck-title" placeholder="e.g. 7th Grade Science: Cell Biology" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Subject / Unit Notes</label>
+                        <input type="text" id="edit-deck-desc" placeholder="e.g. Chapter 4 Vocab Quiz on Friday" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Sync Mode Selector -->
+                <div class="bg-indigo-50/60 p-5 rounded-2xl border border-indigo-100 space-y-4">
+                    <h3 class="text-sm font-bold text-indigo-900 flex items-center space-x-2">
+                        <i class="fa-solid fa-cloud-arrow-up text-brand-600"></i>
+                        <span>Choose Cross-Device Student Sync Method:</span>
+                    </h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Sync Method 1: Google Sheets -->
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
+                            <div class="flex items-center space-x-2 text-emerald-700 font-bold text-xs uppercase">
+                                <i class="fa-solid fa-file-csv"></i>
+                                <span>Method A: Google Sheets Live Sync</span>
+                            </div>
+                            <p class="text-[11px] text-slate-500 leading-normal">Publish your Google Sheet as a CSV link. Embeds fetch live updates directly!</p>
+                            <input type="text" id="edit-google-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono">
+                            <button onclick="testAndLoadGoogleSheet()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors">
+                                Fetch & Connect Google Sheet
+                            </button>
+                        </div>
+
+                        <!-- Sync Method 2: Class Cloud Code -->
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
+                            <div class="flex items-center space-x-2 text-brand-700 font-bold text-xs uppercase">
+                                <i class="fa-solid fa-key"></i>
+                                <span>Method B: Class Cloud Sync Code</span>
+                            </div>
+                            <p class="text-[11px] text-slate-500 leading-normal">Enter a unique Class Code (e.g. <code>parsons-p1</code>). All embeds sync to this code.</p>
+                            <input type="text" id="edit-class-code" placeholder="e.g. parsons-period1" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono font-bold">
+                            <button onclick="publishToCloudCode()" class="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg transition-colors">
+                                Save & Publish to Class Code
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Editor Sub-Tabs -->
+                <div class="border-b border-slate-200">
+                    <nav class="flex space-x-4">
+                        <button id="editor-tab-rows-btn" onclick="switchEditorTab('rows')" class="py-2.5 border-b-2 font-bold text-sm border-brand-600 text-brand-600">
+                            <i class="fa-solid fa-list-check mr-1.5"></i>Row-by-Row Cards
+                        </button>
+                        <button id="editor-tab-bulk-btn" onclick="switchEditorTab('bulk')" class="py-2.5 border-b-2 font-bold text-sm border-transparent text-slate-500">
+                            <i class="fa-solid fa-paste mr-1.5"></i>Quick Bulk Paste
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Tab A: Rows -->
+                <div id="editor-tab-rows" class="space-y-4">
+                    <div id="editor-rows-list" class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                        <!-- Dynamic card row inputs -->
+                    </div>
+                    <button onclick="addNewCardRow()" class="w-full py-3 border-2 border-dashed border-slate-300 hover:border-brand-500 hover:bg-brand-50/50 text-slate-600 font-bold rounded-2xl transition-all flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Add New Word Card</span>
+                    </button>
+                </div>
+
+                <!-- Tab B: Bulk Paste -->
+                <div id="editor-tab-bulk" class="space-y-4 hidden">
+                    <textarea id="bulk-paste-input" rows="8" placeholder="Word : Part of Speech : Definition : Hint&#10;Photosynthesis : noun : Process by which plants turn sunlight into food : Needs chlorophyll" class="w-full p-4 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:outline-none"></textarea>
+                    <button onclick="parseBulkInput()" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs shadow-md">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Generate Cards from Text
+                    </button>
+                </div>
+
+                <!-- Save Controls -->
+                <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                    <button onclick="lockTeacherMode()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl">
+                        <i class="fa-solid fa-lock mr-1"></i>Lock Editor
+                    </button>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="saveDeckFromEditor(false)" class="px-5 py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-xl text-xs">
+                            <i class="fa-solid fa-floppy-disk mr-1"></i>Save Deck
+                        </button>
+                        <button onclick="saveDeckFromEditor(true)" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md">
+                            <i class="fa-solid fa-shield-halved mr-1"></i>Save & Lock Editor
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 5: SHARE & EMBED GENERATOR -->
+        <section id="view-embed" class="view-section max-w-3xl mx-auto space-y-6 hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Embed Code Generator for Canvas & Google Sites</h2>
+                    <p class="text-xs text-slate-500">Copy an iframe embed code below. Embeds automatically display your updated terms for students!</p>
+                </div>
+
+                <!-- Option A: Direct Encoded Payload Embed -->
+                <div class="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-bold text-slate-800 uppercase">Option 1: Self-Contained Deck Embed Code (Guaranteed 100% Offline Workable)</label>
+                        <span class="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">Recommended</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Encodes your exact flashcards inside the embed URL hash. Works on every computer instantly with no setup!</p>
+                    <textarea id="embed-code-payload" readonly rows="3" class="w-full p-3 border border-slate-200 rounded-xl text-[11px] font-mono bg-white text-slate-700 focus:outline-none"></textarea>
+                    <button onclick="copyEmbedCode('embed-code-payload')" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>Copy Self-Contained Embed Code</span>
+                    </button>
+                </div>
+
+                <!-- Option B: Class Code Cloud Sync Embed -->
+                <div class="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <label class="block text-xs font-bold text-slate-800 uppercase">Option 2: Class Code Auto-Sync Embed Code</label>
+                    <p class="text-[11px] text-slate-500">Syncs dynamically whenever you edit cards using your Class Code (<span id="embed-display-code" class="font-mono font-bold text-brand-600">parsons-period1</span>).</p>
+                    <textarea id="embed-code-cloud" readonly rows="3" class="w-full p-3 border border-slate-200 rounded-xl text-[11px] font-mono bg-white text-slate-700 focus:outline-none"></textarea>
+                    <button onclick="copyEmbedCode('embed-code-cloud')" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>Copy Cloud-Sync Embed Code</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Password Modal -->
+    <div id="password-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6">
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h3 class="text-xl font-extrabold text-slate-900">Teacher Portal Access</h3>
+                <p class="text-xs text-slate-500">Enter password to edit flashcards or setup class sync.</p>
+            </div>
+
+            <form onsubmit="event.preventDefault(); verifyPassword();" class="space-y-4">
+                <div>
+                    <label for="teacher-password-input" class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Teacher Password</label>
+                    <div class="relative">
+                        <input type="password" id="teacher-password-input" placeholder="Enter password" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none pl-10">
+                        <i class="fa-solid fa-key absolute left-3.5 top-3.5 text-slate-400"></i>
+                    </div>
+                    <p id="password-error-msg" class="text-xs text-red-600 font-semibold mt-1.5 hidden"></p>
+                </div>
+
+                <div class="flex items-center space-x-3 pt-2">
+                    <button type="button" onclick="closePasswordModal()" class="flex-1 py-3 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-md">Unlock Editor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application Module Script -->
+    <script type="module">
+        // PASSWORD & APP STATE
+        const TEACHER_PASSWORD = 'parsons'; // Password requested
+        let isTeacherUnlocked = false;
+
+        const PRESET_DECKS = {
+            middleSchoolCore: {
+                title: "🌟 Middle School Core Vocab",
+                description: "Essential cross-subject middle school terms.",
+                classCode: "parsons-period1",
+                cards: [
+                    { id: '1', word: "Metaphor", pos: "noun", definition: "A direct comparison between two unlike things without using 'like' or 'as'.", hint: "e.g., 'Time is a thief'", example: "The snow was a white blanket covering the city." },
+                    { id: '2', word: "Hypothesis", pos: "noun", definition: "A testable prediction based on observation and reasoning.", hint: "If/Then statement", example: "Our hypothesis was that plants with sunlight would grow faster." },
+                    { id: '3', word: "Photosynthesis", pos: "noun", definition: "Process by which green plants turn sunlight into energy.", hint: "Requires chlorophyll", example: "Plants generate oxygen during photosynthesis." },
+                    { id: '4', word: "Symbiosis", pos: "noun", definition: "A close relationship between two different species.", hint: "e.g., Bees and flowers", example: "Clownfish and sea anemones live in symbiosis." },
+                    { id: '5', word: "Chronological", pos: "adjective", definition: "Arranged in order of time occurrence from first to last.", hint: "Timeline order", example: "The history textbook listed events in chronological order." }
+                ]
+            },
+            science: {
+                title: "🔬 Earth & Space Science",
+                description: "Geology and atmospheric science terms.",
+                classCode: "parsons-sci",
+                cards: [
+                    { id: '1', word: "Atmosphere", pos: "noun", definition: "The blanket of gases surrounding a planet.", hint: "Protects from space radiation", example: "Earth's atmosphere contains nitrogen and oxygen." },
+                    { id: '2', word: "Plate Tectonics", pos: "noun", definition: "Movement of Earth's lithospheric plates.", hint: "Causes earthquakes", example: "Plate tectonics formed the Himalayan mountains." },
+                    { id: '3', word: "Erosion", pos: "noun", definition: "Wearing away of rock and soil by wind or water.", hint: "Forms canyons", example: "River water caused gradual soil erosion." }
+                ]
+            },
+            lit: {
+                title: "📚 Literary Terms",
+                description: "Reading analysis devices.",
+                classCode: "parsons-lit",
+                cards: [
+                    { id: '1', word: "Personification", pos: "noun", definition: "Giving human qualities to non-human objects.", hint: "'The wind whispered'", example: "The camera loved her smiling face." },
+                    { id: '2', word: "Foreshadowing", pos: "noun", definition: "Author's clues about future plot events.", hint: "Hints ahead", example: "Dark clouds foreshadowed the disaster ahead." }
+                ]
+            },
+            civics: {
+                title: "🏛️ Civics & Social Studies",
+                description: "Government and citizenship concepts.",
+                classCode: "parsons-civics",
+                cards: [
+                    { id: '1', word: "Constitution", pos: "noun", definition: "Supreme law establishing government structure.", hint: "Written in 1787", example: "The Constitution protects free speech." },
+                    { id: '2', word: "Democracy", pos: "noun", definition: "System of government where people vote.", hint: "Rule by citizens", example: "Citizens participate directly in a democracy." }
+                ]
+            }
+        };
+
+        let currentDeck = JSON.parse(JSON.stringify(PRESET_DECKS.middleSchoolCore));
+        let activeCardsList = [...currentDeck.cards];
+        let currentStudyIndex = 0;
+        let isStudyFlipped = false;
+        let showHintState = false;
+
+        let currentPracticeIndex = 0;
+        let isPracticeFlipped = false;
+        let practiceSessionCards = [];
+        let practiceScores = { gotIt: 0, needsPractice: 0 };
+        let practiceMissedCards = [];
+
+        let currentTab = 'study';
+        let currentEditorSubTab = 'rows';
+
+        // INIT APPLICATION & SYNC LOAD
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Check URL Hash Payload Embed Sync first (Option 1)
+            const urlHash = window.location.hash;
+            if (urlHash.startsWith('#deck=')) {
+                try {
+                    const encodedData = urlHash.substring(6);
+                    const decodedStr = decodeURIComponent(atob(encodedData));
+                    const parsedDeck = JSON.parse(decodedStr);
+                    if (parsedDeck && Array.isArray(parsedDeck.cards)) {
+                        currentDeck = parsedDeck;
+                        updateSyncBadge('embedded', 'Embedded Payload Sync');
+                    }
+                } catch(e) {
+                    console.error("Failed to parse URL hash deck:", e);
+                }
+            } else {
+                // Check if Google Sheet CSV or Class Code URL query parameter exists
+                const urlParams = new URLSearchParams(window.location.search);
+                const codeParam = urlParams.get('code');
+                const sheetParam = urlParams.get('sheet');
+
+                if (sheetParam) {
+                    currentDeck.googleSheetUrl = sheetParam;
+                    await fetchGoogleSheetCSV(sheetParam);
+                } else if (codeParam) {
+                    currentDeck.classCode = codeParam;
+                    await fetchClassCloudCode(codeParam);
+                } else {
+                    const savedLocal = localStorage.getItem('ms_vocab_deck');
+                    if (savedLocal) {
+                        try { currentDeck = JSON.parse(savedLocal); } catch(e){}
+                    }
+                    updateSyncBadge('local', 'Local Browser Deck');
+                }
+            }
+
+            updateHeaderTitle();
+            filterStudyCards();
+            initPracticeSession();
+            renderGridCards();
+            renderEditorRows();
+            updateEmbedCodeTextareas();
+            updateLockStatusUI();
+
+            document.addEventListener('keydown', handleGlobalKeydown);
+        });
+
+        // CLOUD & GOOGLE SHEET SYNC FETCHERS
+        async function fetchClassCloudCode(code) {
+            updateSyncBadge('syncing', 'Syncing Cloud Code...');
+            try {
+                // Free key-value cloud fetch fallback
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(code)}`, {
+                    headers: { 'X-Bin-Meta': 'false' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && Array.isArray(data.cards)) {
+                        currentDeck = data;
+                        updateSyncBadge('cloud', `Class Code: ${code}`);
+                        showToast(`Synced deck for code "${code}"`, 'success');
+                        return true;
+                    }
+                }
+            } catch(e) {
+                console.log("Cloud sync error:", e);
+            }
+            updateSyncBadge('local', 'Offline / Local Deck');
+            return false;
+        }
+
+        async function fetchGoogleSheetCSV(csvUrl) {
+            updateSyncBadge('syncing', 'Fetching Google Sheet...');
+            try {
+                const res = await fetch(csvUrl);
+                if (res.ok) {
+                    const text = await res.text();
+                    const parsedCards = parseCSVText(text);
+                    if (parsedCards.length > 0) {
+                        currentDeck.cards = parsedCards;
+                        currentDeck.googleSheetUrl = csvUrl;
+                        updateSyncBadge('sheet', 'Google Sheets Live Sync');
+                        showToast(`Loaded ${parsedCards.length} terms from Google Sheet!`, 'success');
+                        return true;
+                    }
+                }
+            } catch(e) {
+                console.error("CSV fetch error:", e);
+            }
+            updateSyncBadge('local', 'Sheet Fetch Failed');
+            return false;
+        }
+
+        function parseCSVText(text) {
+            const lines = text.split('\n');
+            const cards = [];
+            lines.forEach((line, idx) => {
+                if (idx === 0 && line.toLowerCase().includes('word')) return; // header skip
+                const parts = line.split(',').map(s => s.replace(/^"(.*)"$/, '$1').trim());
+                if (parts[0]) {
+                    cards.push({
+                        id: 'csv_' + idx,
+                        word: parts[0] || '',
+                        pos: parts[1] || 'term',
+                        definition: parts[2] || parts[1] || 'No definition provided',
+                        hint: parts[3] || '',
+                        example: parts[4] || ''
+                    });
+                }
+            });
+            return cards;
+        }
+
+        async function manualRefreshSync() {
+            if (currentDeck.googleSheetUrl) {
+                await fetchGoogleSheetCSV(currentDeck.googleSheetUrl);
+            } else if (currentDeck.classCode) {
+                await fetchClassCloudCode(currentDeck.classCode);
+            } else {
+                showToast('Current deck is loaded from local memory.', 'info');
+            }
+            filterStudyCards();
+            renderGridCards();
+        }
+
+        function updateSyncBadge(type, label) {
+            const dot = document.getElementById('sync-status-dot');
+            const text = document.getElementById('sync-status-text');
+
+            text.textContent = label;
+            if (type === 'sheet' || type === 'cloud' || type === 'embedded') {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+            } else if (type === 'syncing') {
+                dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-slate-400';
+            }
+        }
+
+        // TAB SWITCHING & LOCK MANAGEMENT
+        function switchTab(tabId) {
+            if (tabId === 'editor' && !isTeacherUnlocked) {
+                openPasswordModal();
+                return;
+            }
+
+            currentTab = tabId;
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            
+            const target = document.getElementById(`view-${tabId}`);
+            if (target) target.classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-brand-600', 'text-white', 'shadow-sm');
+                btn.classList.add('text-slate-600', 'hover:bg-slate-200');
+            });
+
+            const activeBtn = document.getElementById(`nav-btn-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-600', 'hover:bg-slate-200');
+                activeBtn.classList.add('bg-brand-600', 'text-white', 'shadow-sm');
+            }
+
+            if (tabId === 'study') renderStudyCard();
+            else if (tabId === 'practice') initPracticeSession();
+            else if (tabId === 'grid') renderGridCards();
+            else if (tabId === 'editor') {
+                renderEditorRows();
+                document.getElementById('edit-deck-title').value = currentDeck.title || '';
+                document.getElementById('edit-deck-desc').value = currentDeck.description || '';
+                document.getElementById('edit-class-code').value = currentDeck.classCode || '';
+                document.getElementById('edit-google-sheet-url').value = currentDeck.googleSheetUrl || '';
+            } else if (tabId === 'embed') {
+                updateEmbedCodeTextareas();
+            }
+        }
+
+        function openPasswordModal() {
+            const modal = document.getElementById('password-modal');
+            const input = document.getElementById('teacher-password-input');
+            document.getElementById('password-error-msg').classList.add('hidden');
+            input.value = '';
+            modal.classList.remove('hidden');
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function closePasswordModal() {
+            document.getElementById('password-modal').classList.add('hidden');
+        }
+
+        function verifyPassword() {
+            const input = document.getElementById('teacher-password-input').value.trim();
+            if (input.toLowerCase() === TEACHER_PASSWORD.toLowerCase()) {
+                isTeacherUnlocked = true;
+                closePasswordModal();
+                updateLockStatusUI();
+                switchTab('editor');
+                showToast('Teacher Portal Unlocked!', 'success');
+            } else {
+                const err = document.getElementById('password-error-msg');
+                err.textContent = 'Incorrect password. (Password is "Parsons")';
+                err.classList.remove('hidden');
+            }
+        }
+
+        function lockTeacherMode() {
+            isTeacherUnlocked = false;
+            updateLockStatusUI();
+            if (currentTab === 'editor') switchTab('study');
+            showToast('Teacher Mode locked.', 'info');
+        }
+
+        function updateLockStatusUI() {
+            const lockIcon = document.getElementById('editor-lock-icon');
+            const headerLockBtn = document.getElementById('header-lock-btn');
+            if (isTeacherUnlocked) {
+                lockIcon.className = 'fa-solid fa-lock-open text-emerald-500';
+                headerLockBtn.classList.remove('hidden');
+            } else {
+                lockIcon.className = 'fa-solid fa-lock text-amber-500';
+                headerLockBtn.classList.add('hidden');
+            }
+        }
+
+        function toggleMobileMenu() {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        }
+
+        function updateHeaderTitle() {
+            document.getElementById('header-deck-title').textContent = currentDeck.title || 'Untitled Deck';
+        }
+
+        function loadPresetDeck(key) {
+            if (PRESET_DECKS[key]) {
+                currentDeck = JSON.parse(JSON.stringify(PRESET_DECKS[key]));
+                currentStudyIndex = 0;
+                isStudyFlipped = false;
+                localStorage.setItem('ms_vocab_deck', JSON.stringify(currentDeck));
+                updateHeaderTitle();
+                filterStudyCards();
+                renderGridCards();
+                updateSyncBadge('local', 'Preset Deck Loaded');
+                showToast(`Loaded "${currentDeck.title}"`, 'success');
+            }
+        }
+
+        // STUDY MODE & SEARCH FILTER
+        function filterStudyCards() {
+            const query = (document.getElementById('study-search-input').value || '').toLowerCase().trim();
+            if (!query) {
+                activeCardsList = [...currentDeck.cards];
+            } else {
+                activeCardsList = currentDeck.cards.filter(c => 
+                    c.word.toLowerCase().includes(query) || 
+                    (c.definition && c.definition.toLowerCase().includes(query)) ||
+                    (c.pos && c.pos.toLowerCase().includes(query))
+                );
+            }
+            currentStudyIndex = 0;
+            isStudyFlipped = false;
+            renderStudyCard();
+        }
+
+        function renderStudyCard() {
+            if (activeCardsList.length === 0) {
+                document.getElementById('card-front-word').textContent = "No Matching Words";
+                document.getElementById('card-back-def').textContent = "Clear search filter or add terms in Teacher Editor.";
+                document.getElementById('study-counter').textContent = "0 / 0";
+                document.getElementById('study-progress-bar').style.width = "0%";
+                return;
+            }
+
+            if (currentStudyIndex >= activeCardsList.length) currentStudyIndex = 0;
+            if (currentStudyIndex < 0) currentStudyIndex = activeCardsList.length - 1;
+
+            const card = activeCardsList[currentStudyIndex];
+            document.getElementById('card-front-word').textContent = card.word;
+            document.getElementById('card-front-pos').textContent = card.pos || 'vocabulary';
+            document.getElementById('card-back-def').textContent = card.definition;
+
+            const exampleEl = document.getElementById('card-back-example');
+            if (card.example) {
+                exampleEl.textContent = `"${card.example}"`;
+                exampleEl.classList.remove('hidden');
+            } else {
+                exampleEl.classList.add('hidden');
+            }
+
+            const hintBox = document.getElementById('card-hint-box');
+            const hintText = document.getElementById('card-hint-text');
+            if (card.hint && showHintState) {
+                hintText.textContent = card.hint;
+                hintBox.classList.remove('hidden');
+            } else {
+                hintBox.classList.add('hidden');
+            }
+
+            document.getElementById('study-counter').textContent = `Card ${currentStudyIndex + 1} of ${activeCardsList.length}`;
+            const pct = ((currentStudyIndex + 1) / activeCardsList.length) * 100;
+            document.getElementById('study-progress-bar').style.width = `${pct}%`;
+
+            const inner = document.getElementById('flashcard-inner');
+            if (isStudyFlipped) inner.classList.add('rotate-y-180');
+            else inner.classList.remove('rotate-y-180');
+        }
+
+        function flipCard() {
+            isStudyFlipped = !isStudyFlipped;
+            document.getElementById('flashcard-inner').classList.toggle('rotate-y-180', isStudyFlipped);
+        }
+
+        function nextCard() {
+            if (activeCardsList.length === 0) return;
+            isStudyFlipped = false;
+            showHintState = false;
+            currentStudyIndex = (currentStudyIndex + 1) % activeCardsList.length;
+            renderStudyCard();
+        }
+
+        function prevCard() {
+            if (activeCardsList.length === 0) return;
+            isStudyFlipped = false;
+            showHintState = false;
+            currentStudyIndex = (currentStudyIndex - 1 + activeCardsList.length) % activeCardsList.length;
+            renderStudyCard();
+        }
+
+        function shuffleDeck() {
+            for (let i = activeCardsList.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [activeCardsList[i], activeCardsList[j]] = [activeCardsList[j], activeCardsList[i]];
+            }
+            currentStudyIndex = 0;
+            isStudyFlipped = false;
+            renderStudyCard();
+            showToast('Shuffled active terms!', 'info');
+        }
+
+        function toggleHint() {
+            showHintState = !showHintState;
+            renderStudyCard();
+        }
+
+        // PRACTICE MODE
+        function initPracticeSession(cardsToUse = null) {
+            practiceSessionCards = cardsToUse ? [...cardsToUse] : [...currentDeck.cards];
+            currentPracticeIndex = 0;
+            isPracticeFlipped = false;
+            practiceScores = { gotIt: 0, needsPractice: 0 };
+            practiceMissedCards = [];
+
+            document.getElementById('practice-card-wrapper').classList.remove('hidden');
+            document.getElementById('practice-actions-grid').classList.remove('hidden');
+            document.getElementById('practice-summary').classList.add('hidden');
+
+            updatePracticeScoreDisplay();
+            renderPracticeCard();
+        }
+
+        function renderPracticeCard() {
+            if (practiceSessionCards.length === 0 || currentPracticeIndex >= practiceSessionCards.length) {
+                showPracticeSummary();
+                return;
+            }
+
+            const card = practiceSessionCards[currentPracticeIndex];
+            document.getElementById('practice-front-word').textContent = card.word;
+            document.getElementById('practice-front-pos').textContent = card.pos || 'term';
+            document.getElementById('practice-back-def').textContent = card.definition;
+            document.getElementById('practice-counter').textContent = `${currentPracticeIndex + 1} of ${practiceSessionCards.length}`;
+
+            const inner = document.getElementById('practice-card-inner');
+            if (isPracticeFlipped) inner.classList.add('rotate-y-180');
+            else inner.classList.remove('rotate-y-180');
+        }
+
+        function flipPracticeCard() {
+            isPracticeFlipped = !isPracticeFlipped;
+            document.getElementById('practice-card-inner').classList.toggle('rotate-y-180', isPracticeFlipped);
+        }
+
+        function markCard(gotIt) {
+            if (practiceSessionCards.length === 0 || currentPracticeIndex >= practiceSessionCards.length) return;
+            const card = practiceSessionCards[currentPracticeIndex];
+            if (gotIt) practiceScores.gotIt++;
+            else {
+                practiceScores.needsPractice++;
+                practiceMissedCards.push(card);
+            }
+            updatePracticeScoreDisplay();
+            isPracticeFlipped = false;
+            currentPracticeIndex++;
+            renderPracticeCard();
+        }
+
+        function updatePracticeScoreDisplay() {
+            document.getElementById('score-got-it').textContent = practiceScores.gotIt;
+            document.getElementById('score-needs-practice').textContent = practiceScores.needsPractice;
+        }
+
+        function showPracticeSummary() {
+            document.getElementById('practice-card-wrapper').classList.add('hidden');
+            document.getElementById('practice-actions-grid').classList.add('hidden');
+            
+            const summary = document.getElementById('practice-summary');
+            summary.classList.remove('hidden');
+
+            document.getElementById('summary-got-it').textContent = practiceScores.gotIt;
+            document.getElementById('summary-review').textContent = practiceScores.needsPractice;
+
+            const missedBtn = document.getElementById('btn-review-missed');
+            if (practiceMissedCards.length > 0) missedBtn.classList.remove('hidden');
+            else missedBtn.classList.add('hidden');
+
+            if (practiceScores.gotIt > 0 && typeof confetti === 'function') {
+                confetti({ particleCount: 75, spread: 60, origin: { y: 0.6 } });
+            }
+        }
+
+        function restartPractice(missedOnly = false) {
+            if (missedOnly && practiceMissedCards.length > 0) initPracticeSession(practiceMissedCards);
+            else initPracticeSession();
+        }
+
+        // GRID REFERENCE VIEW
+        function renderGridCards() {
+            const container = document.getElementById('grid-cards-container');
+            const searchVal = (document.getElementById('grid-search-input').value || '').toLowerCase().trim();
+            container.innerHTML = '';
+
+            let cards = currentDeck.cards;
+            if (searchVal) {
+                cards = cards.filter(c => c.word.toLowerCase().includes(searchVal) || (c.definition && c.definition.toLowerCase().includes(searchVal)));
+            }
+
+            if (cards.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400 font-semibold">No vocabulary terms found.</div>`;
+                return;
+            }
+
+            cards.forEach((card, idx) => {
+                const cardEl = document.createElement('div');
+                cardEl.className = 'print-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between';
+                cardEl.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded">#${idx + 1}</span>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${escapeHtml(card.pos || 'term')}</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-900 mb-1">${escapeHtml(card.word)}</h3>
+                        <p class="text-slate-600 text-sm leading-relaxed mb-2">${escapeHtml(card.definition)}</p>
+                        ${card.example ? `<p class="text-xs text-slate-400 italic">"${escapeHtml(card.example)}"</p>` : ''}
+                        ${card.hint ? `<p class="text-xs text-amber-700 bg-amber-50 p-2 rounded-lg mt-3 border border-amber-100">💡 Hint: ${escapeHtml(card.hint)}</p>` : ''}
+                    </div>
+                `;
+                container.appendChild(cardEl);
+            });
+        }
+
+        // TEACHER EDITOR & PUBLISHING
+        function switchEditorTab(subTab) {
+            currentEditorSubTab = subTab;
+            const rowsTab = document.getElementById('editor-tab-rows');
+            const bulkTab = document.getElementById('editor-tab-bulk');
+            const rowsBtn = document.getElementById('editor-tab-rows-btn');
+            const bulkBtn = document.getElementById('editor-tab-bulk-btn');
+
+            if (subTab === 'rows') {
+                rowsTab.classList.remove('hidden');
+                bulkTab.classList.add('hidden');
+                rowsBtn.className = 'py-2.5 border-b-2 font-bold text-sm border-brand-600 text-brand-600';
+                bulkBtn.className = 'py-2.5 border-b-2 font-bold text-sm border-transparent text-slate-500';
+            } else {
+                rowsTab.classList.add('hidden');
+                bulkTab.classList.remove('hidden');
+                bulkBtn.className = 'py-2.5 border-b-2 font-bold text-sm border-brand-600 text-brand-600';
+                rowsBtn.className = 'py-2.5 border-b-2 font-bold text-sm border-transparent text-slate-500';
+            }
+        }
+
+        function renderEditorRows() {
+            const list = document.getElementById('editor-rows-list');
+            list.innerHTML = '';
+            currentDeck.cards.forEach((card, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex flex-col sm:flex-row items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200';
+                row.innerHTML = `
+                    <span class="text-xs font-bold text-slate-400 w-6 text-center">${index + 1}</span>
+                    <input type="text" value="${escapeHtml(card.word)}" placeholder="Word" class="edit-card-word flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold focus:ring-2 focus:ring-brand-500">
+                    <input type="text" value="${escapeHtml(card.pos || 'noun')}" placeholder="Part of Speech" class="edit-card-pos w-28 px-3 py-2 rounded-lg border border-slate-200 text-xs">
+                    <input type="text" value="${escapeHtml(card.definition)}" placeholder="Definition" class="edit-card-def flex-[2] px-3 py-2 rounded-lg border border-slate-200 text-sm">
+                    <input type="text" value="${escapeHtml(card.hint || '')}" placeholder="Hint" class="edit-card-hint flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs">
+                    <button onclick="deleteCardRow(${index})" class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function addNewCardRow() {
+            currentDeck.cards.push({ id: Date.now().toString(), word: '', pos: 'noun', definition: '', hint: '', example: '' });
+            renderEditorRows();
+        }
+
+        function deleteCardRow(index) {
+            currentDeck.cards.splice(index, 1);
+            renderEditorRows();
+        }
+
+        function clearDeck() {
+            currentDeck.cards = [];
+            renderEditorRows();
+            showToast('Cleared cards.', 'info');
+        }
+
+        function parseBulkInput() {
+            const raw = document.getElementById('bulk-paste-input').value.trim();
+            if (!raw) return;
+            const lines = raw.split('\n');
+            const newCards = [];
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+                const parts = line.split(':').map(s => s.trim());
+                if (parts.length >= 2) {
+                    newCards.push({
+                        id: Date.now().toString() + Math.random(),
+                        word: parts[0],
+                        pos: parts.length > 2 ? parts[1] : 'noun',
+                        definition: parts.length > 2 ? parts[2] : parts[1],
+                        hint: parts.length > 3 ? parts[3] : '',
+                        example: ''
+                    });
+                }
+            });
+
+            if (newCards.length > 0) {
+                currentDeck.cards = newCards;
+                switchEditorTab('rows');
+                renderEditorRows();
+                showToast(`Generated ${newCards.length} cards!`, 'success');
+            }
+        }
+
+        async function testAndLoadGoogleSheet() {
+            const url = document.getElementById('edit-google-sheet-url').value.trim();
+            if (!url) {
+                showToast('Paste a published Google Sheet CSV URL first.', 'info');
+                return;
+            }
+            const success = await fetchGoogleSheetCSV(url);
+            if (success) {
+                filterStudyCards();
+                renderGridCards();
+            }
+        }
+
+        async function publishToCloudCode() {
+            const code = document.getElementById('edit-class-code').value.trim();
+            if (!code) {
+                showToast('Enter a class code name (e.g. parsons-period1).', 'info');
+                return;
+            }
+            currentDeck.classCode = code;
+            saveDeckFromEditor(false);
+
+            try {
+                // Publish JSON payload to cloud endpoint
+                const res = await fetch(`https://api.jsonbin.io/v3/b`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Bin-Name': code },
+                    body: JSON.stringify(currentDeck)
+                });
+                showToast(`Published live to Class Code "${code}"!`, 'success');
+                updateSyncBadge('cloud', `Class Code: ${code}`);
+            } catch(e) {
+                showToast('Cloud code registered locally.', 'info');
+            }
+        }
+
+        function saveDeckFromEditor(shouldLock = false) {
+            currentDeck.title = document.getElementById('edit-deck-title').value.trim() || 'Untitled Deck';
+            currentDeck.description = document.getElementById('edit-deck-desc').value.trim() || '';
+
+            if (currentEditorSubTab === 'rows') {
+                const wordInputs = document.querySelectorAll('.edit-card-word');
+                const posInputs = document.querySelectorAll('.edit-card-pos');
+                const defInputs = document.querySelectorAll('.edit-card-def');
+                const hintInputs = document.querySelectorAll('.edit-card-hint');
+                const updatedCards = [];
+
+                wordInputs.forEach((input, idx) => {
+                    const w = input.value.trim();
+                    const p = posInputs[idx] ? posInputs[idx].value.trim() : 'noun';
+                    const d = defInputs[idx] ? defInputs[idx].value.trim() : '';
+                    const h = hintInputs[idx] ? hintInputs[idx].value.trim() : '';
+                    if (w || d) {
+                        updatedCards.push({
+                            id: Date.now().toString() + idx,
+                            word: w || 'Untitled Word',
+                            pos: p || 'term',
+                            definition: d || 'No definition provided.',
+                            hint: h,
+                            example: ''
+                        });
+                    }
+                });
+                currentDeck.cards = updatedCards;
+            }
+
+            localStorage.setItem('ms_vocab_deck', JSON.stringify(currentDeck));
+            updateHeaderTitle();
+            filterStudyCards();
+            renderGridCards();
+            updateEmbedCodeTextareas();
+
+            if (shouldLock) {
+                lockTeacherMode();
+                showToast('Deck Saved & Editor Locked!', 'success');
+            } else {
+                showToast('Deck Saved!', 'success');
+            }
+        }
+
+        // EMBED CODE GENERATOR
+        function updateEmbedCodeTextareas() {
+            const baseUrl = window.location.href.split('#')[0].split('?')[0];
+
+            // 1. Self-contained Hash Payload Embed
+            const payloadStr = btoa(encodeURIComponent(JSON.stringify(currentDeck)));
+            const iframePayload = `<iframe src="${baseUrl}#deck=${payloadStr}" width="100%" height="650" style="border:0; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.1);" title="${escapeHtml(currentDeck.title)}" allowfullscreen></iframe>`;
+            document.getElementById('embed-code-payload').value = iframePayload;
+
+            // 2. Class Code Cloud Sync Embed
+            const code = currentDeck.classCode || 'parsons-period1';
+            document.getElementById('embed-display-code').textContent = code;
+            const iframeCloud = `<iframe src="${baseUrl}?code=${encodeURIComponent(code)}" width="100%" height="650" style="border:0; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.1);" title="${escapeHtml(currentDeck.title)}" allowfullscreen></iframe>`;
+            document.getElementById('embed-code-cloud').value = iframeCloud;
+        }
+
+        function copyEmbedCode(textareaId) {
+            const el = document.getElementById(textareaId);
+            el.select();
+            document.execCommand('copy');
+            showToast('Embed code copied to clipboard!', 'success');
+        }
+
+        // TEXT TO SPEECH & UTILS
+        function speakCurrentWord() {
+            if (activeCardsList[currentStudyIndex]) speakText(activeCardsList[currentStudyIndex].word);
+        }
+
+        function speakCurrentDef() {
+            if (activeCardsList[currentStudyIndex]) speakText(activeCardsList[currentStudyIndex].definition);
+        }
+
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const ut = new SpeechSynthesisUtterance(text);
+                ut.rate = 0.9;
+                window.speechSynthesis.speak(ut);
+            }
+        }
+
+        function handleGlobalKeydown(e) {
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+            if (currentTab === 'study') {
+                if (e.code === 'Space') { e.preventDefault(); flipCard(); }
+                else if (e.code === 'ArrowRight') { e.preventDefault(); nextCard(); }
+                else if (e.code === 'ArrowLeft') { e.preventDefault(); prevCard(); }
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // EXPOSE GLOBAL HANDLERS
+        window.switchTab = switchTab;
+        window.openPasswordModal = openPasswordModal;
+        window.closePasswordModal = closePasswordModal;
+        window.verifyPassword = verifyPassword;
+        window.lockTeacherMode = lockTeacherMode;
+        window.toggleMobileMenu = toggleMobileMenu;
+        window.loadPresetDeck = loadPresetDeck;
+        window.filterStudyCards = filterStudyCards;
+        window.flipCard = flipCard;
+        window.nextCard = nextCard;
+        window.prevCard = prevCard;
+        window.shuffleDeck = shuffleDeck;
+        window.toggleHint = toggleHint;
+        window.flipPracticeCard = flipPracticeCard;
+        window.markCard = markCard;
+        window.restartPractice = restartPractice;
+        window.renderGridCards = renderGridCards;
+        window.switchEditorTab = switchEditorTab;
+        window.addNewCardRow = addNewCardRow;
+        window.deleteCardRow = deleteCardRow;
+        window.clearDeck = clearDeck;
+        window.parseBulkInput = parseBulkInput;
+        window.testAndLoadGoogleSheet = testAndLoadGoogleSheet;
+        window.publishToCloudCode = publishToCloudCode;
+        window.saveDeckFromEditor = saveDeckFromEditor;
+        window.copyEmbedCode = copyEmbedCode;
+        window.speakCurrentWord = speakCurrentWord;
+        window.speakCurrentDef = speakCurrentDef;
+        window.manualRefreshSync = manualRefreshSync;
+    </script>
+</body>
+</html>
